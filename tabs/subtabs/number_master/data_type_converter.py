@@ -1,94 +1,92 @@
 """
-Professional Data Type Interpreter
-مفسر انواع داده‌های باینری به صورت علامت‌دار و بدون علامت در عرض‌های بیتی مختلف
+Data Type Converter Subtab
+نمایش و تبدیل اعداد با در نظر گرفتن علامت و مکمل دو
 """
-
 import customtkinter as ctk
-import sys
-import os
 
-# اضافه کردن مسیر ریشه برای دسترسی به تنظیمات و ویجت‌ها
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-import config
-from widgets.dark_entry import DarkEntry
-from widgets.result_label import ResultLabel
-
-class DataTypeConverter(ctk.CTkFrame):
+class DataTypeConverterTab(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
-        
-        self.grid_columnconfigure(1, weight=1)
-        self._setup_ui()
+        self._build_ui()
 
-    def _setup_ui(self):
-        """چیدمان المان‌های رابط کاربری"""
-        # ورودی مقدار خام (Raw Value)
-        ctk.CTkLabel(self, text="Raw Value (Hex/Dec):", text_color=config.UI_THEME["COLORS"]["TEXT_SECONDARY"]).grid(row=0, column=0, padx=10, pady=10, sticky="w")
-        self.raw_entry = DarkEntry(self, placeholder="e.g. 0xFFFF", validate_type=None)
-        self.raw_entry.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
-        self.raw_entry.bind("<KeyRelease>", self._interpret)
+    def _build_ui(self):
+        # بخش تنظیمات ورودی
+        top_frame = ctk.CTkFrame(self, fg_color="transparent")
+        top_frame.pack(fill="x", pady=10, padx=10)
 
-        # انتخاب عرض بیتی (Bit-Width)
-        ctk.CTkLabel(self, text="Bit Width:", text_color=config.UI_THEME["COLORS"]["TEXT_SECONDARY"]).grid(row=1, column=0, padx=10, pady=10, sticky="w")
-        self.bit_width_var = ctk.StringVar(value="16")
-        self.bit_width_menu = ctk.CTkOptionMenu(
-            self, values=["8", "16", "32", "64"], 
-            variable=self.bit_width_var,
-            command=self._interpret,
-            fg_color=config.UI_THEME["COLORS"]["BG_LIGHT"],
-            button_color=config.UI_THEME["COLORS"]["ACCENT"]
+        ctk.CTkLabel(top_frame, text="Value (Decimal):").pack(side="left", padx=5)
+        self.entry_val = ctk.CTkEntry(top_frame, width=150)
+        self.entry_val.pack(side="left", padx=5)
+        self.entry_val.bind("<KeyRelease>", self._calculate)
+
+        ctk.CTkLabel(top_frame, text="Bit Width:").pack(side="left", padx=(20, 5))
+        self.combo_width = ctk.CTkComboBox(
+            top_frame, 
+            values=["8", "16", "32", "64"], 
+            width=80,
+            command=self._calculate
         )
-        self.bit_width_menu.grid(row=1, column=1, padx=10, pady=10, sticky="w")
+        self.combo_width.pack(side="left")
+        self.combo_width.set("16")
 
-        # نمایش نتایج تفاسیر مختلف
-        self.unsigned_res = ResultLabel(self, text="---", prefix="Unsigned: ")
-        self.unsigned_res.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky="w")
+        # بخش نمایش نتایج
+        res_frame = ctk.CTkFrame(self)
+        res_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        self.signed_res = ResultLabel(self, text="---", prefix="Signed (2's Comp): ")
-        self.signed_res.grid(row=3, column=0, columnspan=2, padx=10, pady=5, sticky="w")
+        self.lbl_unsigned = self._add_result_row(res_frame, "Unsigned:")
+        self.lbl_signed = self._add_result_row(res_frame, "Signed (2's Comp):")
+        self.lbl_hex = self._add_result_row(res_frame, "Hexadecimal:")
+        self.lbl_bin = self._add_result_row(res_frame, "Binary:")
 
-        self.bin_res = ResultLabel(self, text="---", prefix="Binary Pattern: ")
-        self.bin_res.grid(row=4, column=0, columnspan=2, padx=10, pady=5, sticky="w")
+    def _add_result_row(self, parent, title):
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", pady=8, padx=10)
+        ctk.CTkLabel(row, text=title, width=150, anchor="w").pack(side="left")
+        lbl = ctk.CTkLabel(row, text="---", anchor="w", font=("Consolas", 14))
+        lbl.pack(side="left", fill="x", expand=True)
+        return lbl
 
-    def _interpret(self, event=None):
-        """الگوریتم تفسیر بیت‌ها بر اساس عرض انتخابی"""
-        try:
-            val_str = self.raw_entry.get().strip()
-            if not val_str:
-                self._clear_results()
-                return
-
-            # تشخیص مبنا (هگز یا دهدهی)
-            if val_str.lower().startswith('0x') or any(c in 'abcdefABCDEF' for c in val_str):
-                raw_val = int(val_str, 16)
-            else:
-                raw_val = int(val_str)
-
-            width = int(self.bit_width_var.get())
-            mask = (1 << width) - 1
-            masked_val = raw_val & mask
-
-            # ۱. تفسیر بدون علامت (Unsigned)
-            unsigned_val = masked_val
-
-            # ۲. تفسیر علامت‌دار (Signed - Two's Complement)
-            if masked_val & (1 << (width - 1)):
-                signed_val = masked_val - (1 << width)
-            else:
-                signed_val = masked_val
-
-            # ۳. الگوی باینری
-            bin_pattern = f"{masked_val:0{width}b}"
+    def _calculate(self, event=None):
+        val_str = self.entry_val.get().strip()
+        if not val_str:
+            self._clear_labels()
+            return
             
-            # به‌روزرسانی نمایشگرها
-            self.unsigned_res.update_result(str(unsigned_val))
-            self.signed_res.update_result(str(signed_val))
-            self.bin_res.update_result(bin_pattern)
+        try:
+            val = int(val_str)
+            width = int(self.combo_width.get())
+            max_unsigned = (1 << width) - 1
+            min_signed = -(1 << (width - 1))
+            max_signed = (1 << (width - 1)) - 1
 
+            # ماسک کردن برای استخراج بیت‌ها
+            val_masked = val & max_unsigned
+
+            # محاسبه Unsigned
+            unsigned_val = val_masked
+            
+            # محاسبه Signed
+            if val_masked > max_signed:
+                signed_val = val_masked - (1 << width)
+            else:
+                signed_val = val_masked
+
+            # نمایش
+            self.lbl_unsigned.configure(text=str(unsigned_val))
+            self.lbl_signed.configure(text=str(signed_val))
+            
+            hex_str = hex(val_masked)[2:].upper().zfill(width // 4)
+            self.lbl_hex.configure(text=f"0x{hex_str}")
+            
+            bin_str = bin(val_masked)[2:].zfill(width)
+            formatted_bin = " ".join([bin_str[i:i+4] for i in range(0, len(bin_str), 4)])
+            self.lbl_bin.configure(text=formatted_bin)
+            
+            self.entry_val.configure(border_color="green")
         except ValueError:
-            self._clear_results()
+            self.entry_val.configure(border_color="red")
+            self._clear_labels()
 
-    def _clear_results(self):
-        self.unsigned_res.update_result("---")
-        self.signed_res.update_result("---")
-        self.bin_res.update_result("---")
+    def _clear_labels(self):
+        for lbl in [self.lbl_unsigned, self.lbl_signed, self.lbl_hex, self.lbl_bin]:
+            lbl.configure(text="---")
