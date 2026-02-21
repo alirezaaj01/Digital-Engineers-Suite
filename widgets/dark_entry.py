@@ -17,11 +17,12 @@ class DarkEntry(ctk.CTkEntry):
         """
         validate_type: می تواند 'hex', 'bin', 'float', 'int' یا None باشد
         """
+        # اصلاح رنگ‌ها بر اساس config.py
         super().__init__(
             master,
             placeholder_text=placeholder,
-            fg_color=config.UI_THEME["COLORS"]["BG_LIGHT"],
-            border_color=config.UI_THEME["COLORS"]["BG_SIDEBAR"],
+            fg_color=config.UI_THEME["COLORS"]["BG_SIDEBAR"],
+            border_color=config.UI_THEME["COLORS"]["BG_MAIN"],
             text_color=config.UI_THEME["COLORS"]["TEXT_PRIMARY"],
             placeholder_text_color=config.UI_THEME["COLORS"]["TEXT_SECONDARY"],
             **kwargs
@@ -38,7 +39,7 @@ class DarkEntry(ctk.CTkEntry):
 
         current_text = self.get().strip()
         if not current_text:
-            self.configure(border_color=config.UI_THEME["COLORS"]["BG_SIDEBAR"])
+            self.configure(border_color=config.UI_THEME["COLORS"]["BG_MAIN"])
             return
 
         is_valid = True
